@@ -1,0 +1,40 @@
+CSC360 ASSIGNMENT 3
+
+For this assignment, I have implemented a UFS-style file system. To explain my design choices, I will go through the system's virtual disk zone by zone.
+
+The virtual disk used by this filesystem can be divided into four zones:
+(Note: 1 block = 512B)
+
+Zone 0: Just making a note here that THERE IS NO SUPERBLOCK. The traditional UFS has a superblock to define quantities such as a magic number, the boundaries of the other disk areas, and the heads of freelists of inodes and file blocks.
+
+A magic number is unnecessary in this context because there is no need to distinguish between different filesystem types. Next, the freelist heads are unnecessary because I have implemented those lists as bit vectors, with zeroes and ones representing empty and full disk blocks, respectively.
+
+The remaining quantities do not need to be stored in a superblock because this filesystem is built specifically to run on a 2 MB section of a computer's disk. It does not need to be scalable to other storage spaces, so it makes more sense to simplify the system by including those quantities as C #defines rather than digging into a superblock every time they are needed.
+
+Keeping those quantities in #define statements accomplishes two things: first, it renders them uneditable to malicious users, and second, it simplifies and speeds up operations. Instead of running a complicated read operation every time one of those quantities is needed, the #define constant can simply be named.
+
+Zone 1 (1 block): Free I-node Vector
+
+This is a bit vector in which each successive bit represents one successive i-node block. A 0 represents a free block, while a 1 represents an occupied block.
+
+There are 256 i-node blocks, so only the first 256 bits in this zone are used.
+
+Zone 2 (1 block): Free Data Block Vector
+
+Similar to Zone 1, but representing data blocks instead of i-nodes. There are 3838 data blocks, so only the first 3838 bits in this zone are used.
+
+Zone 3 (256 blocks): I-node Area
+
+Each i-node is 29 bytes long; this length was the result of modifying the recommended 32-byte format and reducing the recommended 4-byte flag area to 1 byte, since only a single flag (indicating whether the i-node represents a file or a directory) is required.
+
+Each i-node takes up one block. This is inefficient, but it was recommended by Prof. Coady to simplify the project.
+
+Zone 4 (3838 blocks): Data Block Area
+
+There's not much to say about the data block area. It comprises 3838 512-byte blocks.
+
+MY DIRECTORY FORMAT
+
+I have followed the assignment document's directory layout with two exceptions: 1) I have not reserved inode number 0 for a "no entry" marker, meaning my system fits not 255 but 256 files and directories, and 2) filenames do not contain null terminators, increasing their maximum length from 30 characters to 31. These two simplifications were made because the "no entry" marker and the null terminator were completely unnecessary.
+
+Finally, my system does not include a swap area, which is necessary for a full-fledged OS but is not needed for a standalone file system.

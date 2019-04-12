@@ -2,6 +2,8 @@ CSC360 ASSIGNMENT 3
 
 For this assignment, I have implemented a UFS-style file system. To explain my design choices, I will go through the system's virtual disk zone by zone.
 
+Note: so that it may be #included in the apps/ test scripts, I have split off some of File.c's contents into File.h.
+
 The virtual disk used by this filesystem can be divided into four zones:
 (Note: 1 block = 512B)
 

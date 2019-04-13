@@ -43,7 +43,6 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 
 /* Makes a new inode representing a file.
  * TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
- * Can finish this thing when I've got InitLLFS up and running, which sets up the freelists
  */
 char* createEmptyInode(){
 	char* inode = (char*)malloc(INODE_SIZE);

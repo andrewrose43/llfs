@@ -44,9 +44,28 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 /* Makes a new inode representing a file.
  * TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
  */
+//TODO: this is woefully incomplete
 char* createEmptyInode(){
 	char* inode = (char*)malloc(INODE_SIZE);
-	short dataBlock1 = 3;
+	//int blockNum = findFreeInode(disk);
+	return inode;
+}
+
+//TODO: this method must make an entry in the directory, which means it must be provided with the directory
+//It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
+void createFile(FILE* disk){
+	char* inode = createEmptyInode();
+	// writeBlock(disk, 2, inode, 32);
+	
+	int blockNum = findFreeInode(disk);
+	int inodeNum = blockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
+
+	setInodeAvailability(disk, blockNum, 1); //Mark the correct i-node as occupied
+
+	printf("blockNum: %d\n", blockNum);
+	printf("inodeNum: %d\n", inodeNum);
+
+	free(inode);
 }
 
 // Returns the block number of the first available i-node
@@ -110,7 +129,7 @@ void setInodeAvailability(FILE* disk, int block, int av){
 	}
 	byte = x;
 	buffer[whichByte] = byte;
-	writeBlock(disk, ZONE_OFFSET_INODE_FREELIST, buffer);
+	writeBlock(disk, ZONE_OFFSET_INODE_FREELIST, buffer, BLOCK_SIZE);
 	free(buffer);
 }
 
@@ -133,7 +152,7 @@ void setDataBlockAvailability(FILE* disk, int block, int av){
         }
         byte = x;
         buffer[whichByte] = byte;
-        writeBlock(disk, ZONE_OFFSET_DATA_FREELIST, buffer);
+        writeBlock(disk, ZONE_OFFSET_DATA_FREELIST, buffer, BLOCK_SIZE);
         free(buffer);
 }
 

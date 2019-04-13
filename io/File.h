@@ -19,6 +19,10 @@
 #define INODE_OFFSET_SINGLE_INDIRECT_BLOCK 25
 #define INODE_OFFSET_DOUBLE_INDIRECT_BLOCK 27
 
+// The flag bytes which indicate whether an inode is for a file or a directory
+#define INODE_FLAG_FILE 255
+#define INODE_FLAG_DIRECTORY 0
+
 // block size (bytes)
 #define BLOCK_SIZE 512
 #define NUM_BLOCKS 4096
@@ -30,6 +34,11 @@ void readBlock(char* buffer, int blockNum, FILE* disk);
 void writeBlock(FILE* disk, int blockNum, char* data, int size);
 void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset);
 char* createEmptyInode();
+void createFile(FILE* disk);
+int findFreeInode(FILE* disk);
+int findFreeDataBlock(FILE* disk);
+void setInodeAvailability(FILE* disk, int block, int av);
+void setDataBlockAvailability(FILE* disk, int block, int av);
 FILE* InitLLFS();
 
 

@@ -41,21 +41,11 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 	fwrite(data, size, 1, disk); //Write it!
 }
 
-/* Makes a new inode representing a file.
- * TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
- */
-//TODO: this is woefully incomplete
-char* createEmptyInode(){
-	char* inode = (char*)malloc(INODE_SIZE);
-	//int blockNum = findFreeInode(disk);
-	return inode;
-}
-
+//TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
 //TODO: this method must make an entry in the directory, which means it must be provided with the directory
+//TODO: this method must give the new i-node its file flag
 //It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
 void createFile(FILE* disk){
-	char* inode = createEmptyInode();
-	// writeBlock(disk, 2, inode, 32);
 	
 	int blockNum = findFreeInode(disk);
 	int inodeNum = blockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
@@ -87,11 +77,9 @@ int findFreeInode(FILE* disk){
 	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk); //reads the freelist vector!
 	for (int iblock = ZONE_OFFSET_INODES; iblock < ZONE_OFFSET_DATA; iblock++) {//Traverse the blocks that are part of the i-node zone!
 		int whichByte = (iblock-(iblock%8))/8; //determines which byte of the bit vector corresponds to any block
-		printf("whichByte is %d\n", whichByte);
 		int arrVal = buffer[whichByte]; //arrVal = byte of bit vector currently being looked at
 		int block = 0;
 		int a = arrVal;
-		printf("a is %d\n", a);
 
 		for (int shift = 7; shift >= 0; shift--){
 			int b = a>>shift;

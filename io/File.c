@@ -173,14 +173,16 @@ void setDataBlockAvailability(FILE* disk, int block, int av){
         free(buffer);
 }
 
-// Get the file system started
+// Get this party started
 FILE* InitLLFS(){
+
 	// Create the virtual disk
 	FILE* disk = fopen("../disk/vdisk", "wb+");
 	// Clear virtual disk
 	// (this also clears the freelist bit vectors, which need to be set to 0 to indicate they are free)
         char* init = calloc(BLOCK_SIZE*NUM_BLOCKS, 1);
         fwrite(init, BLOCK_SIZE*NUM_BLOCKS, 1, disk);
+	free(init);
 
 	// Next, we need to mark blocks 0 and 1 as occupied so that the i-node vector does not register itself and the data block vector as free space for i-nodes to use up
 	char occupado = 0xc0;
@@ -189,10 +191,11 @@ FILE* InitLLFS(){
 	// Then do the same for blocks 256 and 257 in the data block vector - data must not overwrite i-nodes.
 	printf("writing to byte %d\n", ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
 	writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
-	//writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, &occupado, 1, 0);
 
-	free(init);
-	//confirmed: at this point, nothing has been written to vdisk
+	// Finally, mark the first 6 bits of the data block zone as occupied so that i-nodes are not written there. (A similar protection is not needed at the end of the data block zone because the data block zone ends at the end of the file.)
+	occupado = 0x3f;
+	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
+
 
 	return disk;
 }

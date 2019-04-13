@@ -60,7 +60,7 @@ int findFreeInode(FILE* disk){
 		int block = 0;
 		int a = arrVal;
 
-		for (int shift = 8; shift > 0; shift--){
+		for (int shift = 7; shift >= 0; shift--){
 			int b = a>>shift;
 			if (b&1){
 				block = (whichByte*8)+(7-shift);
@@ -81,7 +81,7 @@ int findFreeDataBlock(FILE* disk){
                 int block = 0;
                 int a = arrVal;
 
-                for (int shift = 8; shift > 0; shift--){
+                for (int shift = 7; shift >= 0; shift--){
                         int b = a>>shift;
                         if (b&1){
                                 block = (whichByte*8)+(7-shift);
@@ -92,34 +92,51 @@ int findFreeDataBlock(FILE* disk){
         }
 }
 
-
-/*
-// Returns a block value from 0 to 4095
-int findFreeBlock(FILE* disk){
-	char* buffer = (char*)malloc(BLOCK_SIZE);
-	readBlock(buffer, 1, disk); //reads SUPERBLOCK (to become my bit vectors) into the buffer
-	for (int i = 1; i < NUM_BLOCKS; i++){ //START AT 1 TO AVOID WEIRD MODULO PROBLEM WITH ZERO 
-	//Why not start at 10? 10 WOULD WORK; there was some weird diagnostic reason
-	//When I modify this, I can simply change that to fit the bounds of my zones and I am good to go!
-	
-		int byteNum = (i-(i%8))/8; //figures out which byte of the bit vector corresponds to any block
-		int arrVal = buffer[byteNum]; //arrVal = byte of bit vector currently being looked at
-		int block = 0;
-		int x = arrVal;
-
-		//"c" for no particular reason
-		for (int c = 8; c > 0; c--){
-			int y = x>>c;
-			if (y&1){
-				block = (byteNum*8)+(7-c);
-				free(buffer);
-				return block;
-			}
-		}
-	} 
+/* Marks an i-node block free or occupied
+ * @param block: the block being freed or occupied
+ * @param av: 0 = being freed; 1 = being occupied
+ */
+void setInodeAvailability(FILE* disk, int block, int av){
+	char *buffer = calloc(BLOCK_SIZE, 1);
+	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk);
+	int whichByte = (block-(block%8))/8;
+	int bit = 7 - (block%8); //the bit to be set/reset
+	unsigned char byte = buffer[whichByte]; //unsigned to avoid registering a negative number
+	int x = byte;
+	if (av==0){
+		x = x & (255-(1<<bit));
+	}
+	else if (av==1){
+		x = x | (1<<bit);
+	}
+	byte = x;
+	buffer[whichByte] = byte;
+	writeBlock(disk, ZONE_OFFSET_INODE_FREELIST, buffer);
+	free(buffer);
 }
-*/
 
+/* Marks a data block free or occupied
+ * @param block: the block being freed or occupied
+ * @param av: 0 = being freed; 1 = being occupied
+ */
+void setDataBlockAvailability(FILE* disk, int block, int av){
+        char *buffer = calloc(BLOCK_SIZE, 1);
+        readBlock(buffer, ZONE_OFFSET_DATA_FREELIST, disk);
+        int whichByte = (block-(block%8))/8;
+        int bit = 7 - (block%8); //the bit to be set/reset
+        unsigned char byte = buffer[whichByte]; //unsigned to avoid registering a negative number
+        int x = byte;
+        if (av==0){
+                x = x & (255-(1<<bit));
+        }
+        else if (av==1){
+                x = x | (1<<bit);
+        }
+        byte = x;
+        buffer[whichByte] = byte;
+        writeBlock(disk, ZONE_OFFSET_DATA_FREELIST, buffer);
+        free(buffer);
+}
 
 // Get the file system started
 FILE* InitLLFS(){

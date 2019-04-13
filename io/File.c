@@ -62,27 +62,43 @@ void createFile(FILE* disk){
 
 	setInodeAvailability(disk, blockNum, 1); //Mark the correct i-node as occupied
 
+	//TESTING BEGINS
+
 	printf("blockNum: %d\n", blockNum);
 	printf("inodeNum: %d\n", inodeNum);
+
+	blockNum = findFreeInode(disk);
+	inodeNum = blockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
+
+	setInodeAvailability(disk, blockNum, 1); //Mark the correct i-node as occupied
+
+	printf("blockNum: %d\n", blockNum);
+	printf("inodeNum: %d\n", inodeNum);
+
+	//TESTING ENDS
 
 	free(inode);
 }
 
 // Returns the block number of the first available i-node
 int findFreeInode(FILE* disk){
+	printf("Finding free inode...\n");
 	char* buffer = (char*)malloc(BLOCK_SIZE);
 	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk); //reads the freelist vector!
 	for (int iblock = ZONE_OFFSET_INODES; iblock < ZONE_OFFSET_DATA; iblock++) {//Traverse the blocks that are part of the i-node zone!
 		int whichByte = (iblock-(iblock%8))/8; //determines which byte of the bit vector corresponds to any block
+		printf("whichByte is %d\n", whichByte);
 		int arrVal = buffer[whichByte]; //arrVal = byte of bit vector currently being looked at
 		int block = 0;
 		int a = arrVal;
+		printf("a is %d\n", a);
 
 		for (int shift = 7; shift >= 0; shift--){
 			int b = a>>shift;
-			if (b&1){
+			if ((~b)&1){
 				block = (whichByte*8)+(7-shift);
 				free(buffer);
+				printf("Free inode found at %d\n", block);
 				return block;
 			}
 		}
@@ -101,7 +117,7 @@ int findFreeDataBlock(FILE* disk){
 
                 for (int shift = 7; shift >= 0; shift--){
                         int b = a>>shift;
-                        if (b&1){
+                        if ((~b)&1){
                                 block = (whichByte*8)+(7-shift);
                                 free(buffer);
                                 return block;
@@ -115,6 +131,7 @@ int findFreeDataBlock(FILE* disk){
  * @param av: 0 = being freed; 1 = being occupied
  */
 void setInodeAvailability(FILE* disk, int block, int av){
+	printf("Setting inode availability\n");
 	char *buffer = calloc(BLOCK_SIZE, 1);
 	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk);
 	int whichByte = (block-(block%8))/8;
@@ -164,5 +181,8 @@ FILE* InitLLFS(){
 	// (this also clears the freelist bit vectors, which need to be set to 0 to indicate they are free)
         char* init = calloc(BLOCK_SIZE*NUM_BLOCKS, 1);
         fwrite(init, BLOCK_SIZE*NUM_BLOCKS, 1, returner);
+	free(init);
+	//confirmed: at this point, nothing has been written to vdisk
+
 	return returner;
 }

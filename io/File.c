@@ -182,10 +182,15 @@ FILE* InitLLFS(){
         char* init = calloc(BLOCK_SIZE*NUM_BLOCKS, 1);
         fwrite(init, BLOCK_SIZE*NUM_BLOCKS, 1, disk);
 
-	// Next, we need to mark blocks 0 and 1 as occupied so that the i-node vector does not register itself and the data block vector as free.
+	// Next, we need to mark blocks 0 and 1 as occupied so that the i-node vector does not register itself and the data block vector as free space for i-nodes to use up
 	char occupado = 0xc0;
-	writeBytes(disk, 0, &occupado, 1, 0);
-	
+	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, 0);
+
+	// Then do the same for blocks 256 and 257 in the data block vector - data must not overwrite i-nodes.
+	printf("writing to byte %d\n", ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
+	writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
+	//writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, &occupado, 1, 0);
+
 	free(init);
 	//confirmed: at this point, nothing has been written to vdisk
 

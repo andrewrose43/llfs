@@ -24,3 +24,12 @@
 #define NUM_BLOCKS 4096
 #define INODE_SIZE 29 //the amount of space an i-node actually uses in its block
 
+// Function declarations!
+
+void readBlock(char* buffer, int blockNum, FILE* disk);
+void writeBlock(FILE* disk, int blockNum, char* data, int size);
+void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset);
+char* createEmptyInode();
+FILE* InitLLFS();
+
+

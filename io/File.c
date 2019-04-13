@@ -176,13 +176,18 @@ void setDataBlockAvailability(FILE* disk, int block, int av){
 // Get the file system started
 FILE* InitLLFS(){
 	// Create the virtual disk
-	FILE* returner = fopen("../disk/vdisk", "wb+");
+	FILE* disk = fopen("../disk/vdisk", "wb+");
 	// Clear virtual disk
 	// (this also clears the freelist bit vectors, which need to be set to 0 to indicate they are free)
         char* init = calloc(BLOCK_SIZE*NUM_BLOCKS, 1);
-        fwrite(init, BLOCK_SIZE*NUM_BLOCKS, 1, returner);
+        fwrite(init, BLOCK_SIZE*NUM_BLOCKS, 1, disk);
+
+	// Next, we need to mark blocks 0 and 1 as occupied so that the i-node vector does not register itself and the data block vector as free.
+	char occupado = 0xc0;
+	writeBytes(disk, 0, &occupado, 1, 0);
+	
 	free(init);
 	//confirmed: at this point, nothing has been written to vdisk
 
-	return returner;
+	return disk;
 }

@@ -10,6 +10,19 @@ void readBlock(char* buffer, int blockNum, FILE* disk){
 	fread(buffer, BLOCK_SIZE, 1, disk);
 }
 
+/* 
+ * Reads some particular number of bytes from the disk into a buffer.
+ * @param buffer: a chunk of dynamic memory to read into
+ * @param blockNum: which block, from 0 to 4095, is being read from
+ * @param disk: the virtual disk
+ * @param size: the number of bytes to read
+ * @param offset: the byte offset within the block at which the read will begin
+ */
+void readBytes(char* buffer, int blockNum, FILE* disk, int size, int offset){
+	fseek(disk, blockNum*BLOCK_SIZE+offset, SEEK_SET);
+	fread(buffer, size, 1, disk);
+}
+
 /* Writes one 512-byte block into memory
  * Overwrites the ENTIRE BLOCK!
  * @param disk: the virtual disk
@@ -45,31 +58,46 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 //TODO: this method must make an entry in the directory, which means it must be provided with a) the name of the new file and b) the directory
 //TODO: this method must give the new i-node its file flag
 //It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
-void createFile(FILE* disk){
+//This function assumes that we're working exclusively in the root directory. No sub-directories.
+void createFile(FILE* disk, FILE* stream, char* filename){
+
+	//Open up that incoming file!
+	FILE* newFile = fopen(filename, "rb");
 	
-	int blockNum = findFreeInode(disk);
-	int inodeNum = blockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
+	int inodeBlockNum = findFreeInode(disk);
+	int inodeNum = inodeBlockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
+	setInodeAvailability(disk, inodeBlockNum, 1); //Mark the correct i-node as occupied
 
-	setInodeAvailability(disk, blockNum, 1); //Mark the correct i-node as occupied
+	int dataBlockNum = findFreeDataBlock(disk);
+	setDataBlockAvailability(disk, dataBlockNum, 1); //Mark the correct data block as occupied
+	printf("dataBlockNum is %d\n", dataBlockNum);
 
-	//TESTING BEGINS
+	char rootBlock[4]; //to read that block number
+	readBytes(rootBlock, ZONE_OFFSET_DATA_FREELIST, disk, 2, 0); //Read the block number of the root directory into rootBlock
 
-	printf("blockNum: %d\n", blockNum);
-	printf("inodeNum: %d\n", inodeNum);
+	int* intRootBlock = (int*) rootBlock; //Cast that pointer as an int pointer to pass it to readBlock
+	
+	char* buffer = (char*)malloc(BLOCK_SIZE);
+	readBlock(buffer, *intRootBlock, disk); //Read the directory into the buffer
 
-	blockNum = findFreeInode(disk);
-	inodeNum = blockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
-
-	setInodeAvailability(disk, blockNum, 1); //Mark the correct i-node as occupied
-
-	printf("blockNum: %d\n", blockNum);
-	printf("inodeNum: %d\n", inodeNum);
-
-	//TESTING ENDS
+	//Now let's find the first empty slot in the directory!
+	for (int i = 0; i < 16; i++){
+		if (buffer[32*i]) continue; //move to next slot if this one is occupied (0 indicates unoccupied slot)
+		//if we made it past the if statement, we've found our empty slot!
+		buffer[32*i] = inodeNum;
+		strncpy((char*)&buffer[32*i+1], &filename[1], MAX_NAME_LENGTH); //32*i+1 because it is stored one bit on from the inode number; filename[1] to remove the slash; MAX_NAME_LENGTH to only copy what is needed
+		writeBlock(disk, *intRootBlock, buffer, BLOCK_SIZE); //Write the buffer to disk!
+		free(buffer);
+		return; //you've copied in that file name; now shoo!
+	}
+	free(buffer);
+	fprintf(stderr, "Directory out of space!\n");
+	exit(1);
 }
 
 /*
  * Makes a new directory.
+ * Incomplete, obviously.
  */
 void createDir(FILE* disk, char* dirName){
 	int blockNum = findFreeDataBlock(disk);
@@ -199,14 +227,16 @@ FILE* InitLLFS(){
 	setInodeAvailability(disk, 262, 1);
 	setInodeAvailability(disk, 263, 1);
 
+
 	// CREATE THE ROOT DIRECTORY
-	
+
 	// First, create the directory's i-node
 	int rootINodeBlock = findFreeInode(disk);
 	// Mark that i-node as occupied
 	setInodeAvailability(disk, rootINodeBlock, 1); //Mark the correct i-node as occupied
 	int rootDirBlock = findFreeDataBlock(disk); //the block number of the root dir
 	setDataBlockAvailability(disk, rootDirBlock, 1); // Mark that data block as occupied
+
 
 	// Write the size of the directory to its inode (BLOCK_SIZE, of course)
 	// This requires some casting trickery.
@@ -224,9 +254,11 @@ FILE* InitLLFS(){
 
 	// Write the directory's block number to disk
 	*intTmpChars = rootDirBlock;
-	printf("The directory information will be stored in block %d\n", rootDirBlock);
+	printf("The directory's contents will be stored in block %d\n", rootDirBlock);
 	writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_PER_DATA_BLOCK, INODE_OFFSET_FIRST_DATA_BLOCK);
 
+	// I stored the block number in an inode for professionalism's sake, but won't use it. To navigate to the directory in the future, it will be easier to simply access its block number at the beginning of the free data block vector.
+	writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, tmpchars, INODE_OFFSET_PER_DATA_BLOCK, 0);
 
 	// ALL DONE!
 

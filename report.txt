@@ -5,7 +5,6 @@ For this assignment, I have implemented a UFS-style file system. To explain my d
 Note: so that it may be #included in the apps/ test scripts, I have split off some of File.c's contents into File.h.
 
 The virtual disk used by this filesystem can be divided into four zones:
-(Note: 1 block = 512B)
 
 Zone 0: Just making a note here that THERE IS NO SUPERBLOCK. The traditional UFS has a superblock to define quantities such as a magic number, the boundaries of the other disk areas, and the heads of freelists of inodes and file blocks.
 
@@ -19,11 +18,13 @@ Zone 1 (1 block): Free I-node Vector
 
 This is a bit vector in which each successive bit represents one successive i-node block. A 0 represents a free block, while a 1 represents an occupied block.
 
-There are 255 i-node blocks, so only the first 255 bits in this zone are used.
+There are 255 i-node blocks, so only 255 bits in this zone are used. Specifically, they're bits 2 through 257, since bits 0 and 1 represent the two free block vector blocks.
 
-Zone 2 (1 block): Free Data Block Vector
+Zone 2 (1 block): Free Data Block Vector & Root Directory Block Number
 
-Similar to Zone 1, but representing data blocks instead of i-nodes. There are 3839 data blocks, so only the first 3839 bits in this zone are used.
+Similar to Zone 1, but representing data blocks instead of i-nodes. There are 3839 data blocks, so only the last 3839 bits here are used to track free data blocks.
+
+Two bytes at the beginning of Zone 2 are used to store the block belonging to the root directory.
 
 Zone 3 (255 blocks): I-node Area
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 // SYSTEM CONSTANTS
 // These values represent the byte and block offsets by which critical data fields and disk zones may be found within the virtual disk.
@@ -28,17 +29,18 @@
 #define NUM_BLOCKS 4096
 #define INODE_SIZE 29 //the amount of space an i-node actually uses in its block
 
+// The maximum length of files and directories' names
+#define MAX_NAME_LENGTH 31
+
 // Function declarations!
 
 void readBlock(char* buffer, int blockNum, FILE* disk);
 void writeBlock(FILE* disk, int blockNum, char* data, int size);
 void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset);
 char* createEmptyInode();
-void createFile(FILE* disk);
+void createFile(FILE* disk, FILE* stream, char* filename);
 int findFreeInode(FILE* disk);
 int findFreeDataBlock(FILE* disk);
 void setInodeAvailability(FILE* disk, int block, int av);
 void setDataBlockAvailability(FILE* disk, int block, int av);
 FILE* InitLLFS();
-
-

@@ -6,8 +6,11 @@ int main(){
 	printf("It's working\n");
 	//do_other_things_?
 	
+	
 	//A little testing...
-	createFile(disk);
+	FILE* stream = fopen("./darthplagueis.txt", "rb");
+	char filename[MAX_NAME_LENGTH+1] = "/darthplagueis.txt"; //+1 because the slash gets trimmed off
+	createFile(disk, stream, filename);
 	
 	return 0;
 }

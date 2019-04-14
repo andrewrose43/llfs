@@ -42,7 +42,7 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 }
 
 //TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
-//TODO: this method must make an entry in the directory, which means it must be provided with the directory
+//TODO: this method must make an entry in the directory, which means it must be provided with a) the name of the new file and b) the directory
 //TODO: this method must give the new i-node its file flag
 //It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
 void createFile(FILE* disk){
@@ -169,6 +169,9 @@ void setDataBlockAvailability(FILE* disk, int block, int av){
 // Get this party started
 FILE* InitLLFS(){
 
+
+	// CREATE AND CLEAR THE DISK
+
 	// Create the virtual disk
 	FILE* disk = fopen("../disk/vdisk", "wb+");
 	// Clear virtual disk
@@ -176,6 +179,9 @@ FILE* InitLLFS(){
         char* init = calloc(BLOCK_SIZE*NUM_BLOCKS, 1);
         fwrite(init, BLOCK_SIZE*NUM_BLOCKS, 1, disk);
 	free(init);
+
+
+	// SET BOUNDARIES ON THE FREELIST VECTORS
 
 	// Next, we need to mark blocks 0 and 1 as occupied so that the i-node vector does not register itself and the data block vector as free space for i-nodes to use up
 	char occupado = 0xc0;
@@ -190,6 +196,31 @@ FILE* InitLLFS(){
 	occupado = 0x7f;
 	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
 
+
+	// CREATE THE ROOT DIRECTORY
+	
+	// First, create the directory's i-node
+	int rootINodeBlock = findFreeInode(disk);
+	// Mark that i-node as occupied
+	setInodeAvailability(disk, rootINodeBlock, 1); //Mark the correct i-node as occupied
+	// TODO: the size is 512; also add that flag INODE_FLAG_FILE
+	// Write the size of the directory to its inode (BLOCK_SIZE, of course)
+	// This requires some casting trickery.
+	char tmpchars[4]; //4 bytes in an array
+	int *intTmpChars = (int*)tmpchars;
+	*intTmpChars = BLOCK_SIZE;
+	// Now, casting tmpchars (or the disk location it writes to) as an int* will get you BLOCK_SIZE!
+
+	// Write the file size (BLOCK_SIZE) to disk
+	writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_FILE_TYPE_FLAG - INODE_OFFSET_FILE_SIZE, INODE_OFFSET_FILE_SIZE);
+
+	int rootDirBlock = findFreeDataBlock(disk); //the block number of the root dir
+	// Mark that data block as occupied
+	setDataBlockAvailability(disk, rootDirBlock, 1);
+	printf("%d\n", rootDirBlock);
+
+
+	// ALL DONE!
 
 	return disk;
 }

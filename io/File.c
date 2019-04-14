@@ -184,18 +184,20 @@ FILE* InitLLFS(){
 	// SET BOUNDARIES ON THE FREELIST VECTORS
 
 	// Next, we need to mark blocks 0 and 1 as occupied so that the i-node vector does not register itself and the data block vector as free space for i-nodes to use up
-	char occupado = 0xc0;
-	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, 0);
+	setInodeAvailability(disk, 0, 1);
+	setInodeAvailability(disk, 1, 1);
 
 	// Then do the same for block 256 in the data block vector - data must not overwrite i-nodes.
-	printf("writing to byte %d\n", ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
-	occupado = 0x80;
-	writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
+	setDataBlockAvailability(disk, 256, 1);
 
 	// Finally, mark the first 7 bits of the data block zone as occupied so that i-nodes are not written there. (A similar protection is not needed at the end of the data block zone because the data block zone ends at the end of the file.)
-	occupado = 0x7f;
-	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
-
+	setInodeAvailability(disk, 257, 1);
+	setInodeAvailability(disk, 258, 1);
+	setInodeAvailability(disk, 259, 1);
+	setInodeAvailability(disk, 260, 1);
+	setInodeAvailability(disk, 261, 1);
+	setInodeAvailability(disk, 262, 1);
+	setInodeAvailability(disk, 263, 1);
 
 	// CREATE THE ROOT DIRECTORY
 	
@@ -203,7 +205,9 @@ FILE* InitLLFS(){
 	int rootINodeBlock = findFreeInode(disk);
 	// Mark that i-node as occupied
 	setInodeAvailability(disk, rootINodeBlock, 1); //Mark the correct i-node as occupied
-	// TODO: the size is 512; also add that flag INODE_FLAG_FILE
+	int rootDirBlock = findFreeDataBlock(disk); //the block number of the root dir
+	setDataBlockAvailability(disk, rootDirBlock, 1); // Mark that data block as occupied
+
 	// Write the size of the directory to its inode (BLOCK_SIZE, of course)
 	// This requires some casting trickery.
 	char tmpchars[4]; //4 bytes in an array
@@ -214,10 +218,14 @@ FILE* InitLLFS(){
 	// Write the file size (BLOCK_SIZE) to disk
 	writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_FILE_TYPE_FLAG - INODE_OFFSET_FILE_SIZE, INODE_OFFSET_FILE_SIZE);
 
-	int rootDirBlock = findFreeDataBlock(disk); //the block number of the root dir
-	// Mark that data block as occupied
-	setDataBlockAvailability(disk, rootDirBlock, 1);
-	printf("%d\n", rootDirBlock);
+	// Write the directory flag to disk
+	*intTmpChars = INODE_FLAG_DIRECTORY;
+        writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_FIRST_DATA_BLOCK - INODE_OFFSET_FILE_TYPE_FLAG, INODE_OFFSET_FILE_TYPE_FLAG);
+
+	// Write the directory's block number to disk
+	*intTmpChars = rootDirBlock;
+	printf("The directory information will be stored in block %d\n", rootDirBlock);
+	writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_PER_DATA_BLOCK, INODE_OFFSET_FIRST_DATA_BLOCK);
 
 
 	// ALL DONE!

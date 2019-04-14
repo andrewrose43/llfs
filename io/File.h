@@ -9,7 +9,7 @@
 #define ZONE_OFFSET_INODE_FREELIST 0
 #define ZONE_OFFSET_DATA_FREELIST 1
 #define ZONE_OFFSET_INODES 2
-#define ZONE_OFFSET_DATA 258
+#define ZONE_OFFSET_DATA 257
 
 // i-node section boundaries (bytes)
 #define INODE_OFFSET_FILE_SIZE 0

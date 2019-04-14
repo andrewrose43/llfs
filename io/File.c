@@ -66,8 +66,13 @@ void createFile(FILE* disk){
 	printf("inodeNum: %d\n", inodeNum);
 
 	//TESTING ENDS
+}
 
-	free(inode);
+/*
+ * Makes a new directory.
+ */
+void createDir(FILE* disk, char* dirName){
+	int blockNum = findFreeDataBlock(disk);
 }
 
 // Returns the block number of the first available i-node
@@ -176,12 +181,13 @@ FILE* InitLLFS(){
 	char occupado = 0xc0;
 	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, 0);
 
-	// Then do the same for blocks 256 and 257 in the data block vector - data must not overwrite i-nodes.
+	// Then do the same for block 256 in the data block vector - data must not overwrite i-nodes.
 	printf("writing to byte %d\n", ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
+	occupado = 0x80;
 	writeBytes(disk, ZONE_OFFSET_DATA_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
 
-	// Finally, mark the first 6 bits of the data block zone as occupied so that i-nodes are not written there. (A similar protection is not needed at the end of the data block zone because the data block zone ends at the end of the file.)
-	occupado = 0x3f;
+	// Finally, mark the first 7 bits of the data block zone as occupied so that i-nodes are not written there. (A similar protection is not needed at the end of the data block zone because the data block zone ends at the end of the file.)
+	occupado = 0x7f;
 	writeBytes(disk, ZONE_OFFSET_INODE_FREELIST, &occupado, 1, ZONE_OFFSET_DATA - ZONE_OFFSET_INODES);
 
 

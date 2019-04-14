@@ -19,24 +19,20 @@ Zone 1 (1 block): Free I-node Vector
 
 This is a bit vector in which each successive bit represents one successive i-node block. A 0 represents a free block, while a 1 represents an occupied block.
 
-There are 256 i-node blocks, so only the first 256 bits in this zone are used.
+There are 255 i-node blocks, so only the first 255 bits in this zone are used.
 
 Zone 2 (1 block): Free Data Block Vector
 
-Similar to Zone 1, but representing data blocks instead of i-nodes. There are 3838 data blocks, so only the first 3838 bits in this zone are used.
+Similar to Zone 1, but representing data blocks instead of i-nodes. There are 3839 data blocks, so only the first 3839 bits in this zone are used.
 
-Zone 3 (256 blocks): I-node Area
+Zone 3 (255 blocks): I-node Area
 
 Each i-node is 29 bytes long; this length was the result of modifying the recommended 32-byte format and reducing the recommended 4-byte flag area to 1 byte, since only a single flag (indicating whether the i-node represents a file or a directory) is required.
 
 Each i-node takes up one block. This is inefficient, but it was recommended by Prof. Coady to simplify the project.
 
-Zone 4 (3838 blocks): Data Block Area
+Zone 4 (3839 blocks): Data Block Area
 
-There's not much to say about the data block area. It comprises 3838 512-byte blocks.
-
-MY DIRECTORY FORMAT
-
-I have followed the assignment document's directory layout with two exceptions: 1) I have not reserved inode number 0 for a "no entry" marker, meaning my system fits not 255 but 256 files and directories, and 2) filenames do not contain null terminators, increasing their maximum length from 30 characters to 31. These two simplifications were made because the "no entry" marker and the null terminator were completely unnecessary.
+There's not much to say about the data block area. It comprises 3839 512-byte blocks. I have followed the assignment document's directory layout to the letter.
 
 Finally, my system does not include a swap area, which is necessary for a full-fledged OS but is not needed for a standalone file system.

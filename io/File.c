@@ -126,7 +126,7 @@ void createFile(FILE* disk, FILE* stream, char* filename){
         	// MARK A DATA BLOCK OCCUPIED
         	int dataBlockNum = findFreeDataBlock(disk); //Find the data block needed to store the next 512B of the file
         	setDataBlockAvailability(disk, dataBlockNum, 1); //Mark the correct data block as occupied
-		//WRITE THE OCCUPIED BLOCKS TO THE INODE
+		writeBytes(disk, inodeBlockNum, (char*)&dataBlockNum, INODE_OFFSET_PER_DATA_BLOCK, INODE_OFFSET_FIRST_DATA_BLOCK + i*INODE_OFFSET_PER_DATA_BLOCK); //Mark the occupied block in the i-node
 
 		// grand finale: WRITE THE CONTENTS OF THE FILE TO DISK
 		//Clear the buffer

@@ -4,6 +4,10 @@ For this assignment, I have implemented a UFS-style file system. To explain my d
 
 Note: so that it may be #included in the apps/ test scripts, I have split off some of File.c's contents into File.h.
 
+The provided shell script SimpleShellScript.sh makes the project and stores a 2-block text file in the system.
+
+Missing features, due to lack of time: sub-directories, deletion, indirect data blocks, robustness.
+
 The virtual disk used by this filesystem can be divided into four zones:
 
 Zone 0: Just making a note here that THERE IS NO SUPERBLOCK. The traditional UFS has a superblock to define quantities such as a magic number, the boundaries of the other disk areas, and the heads of freelists of inodes and file blocks.
@@ -28,7 +32,7 @@ Two bytes at the beginning of Zone 2 are used to store the block belonging to th
 
 Zone 3 (255 blocks): I-node Area
 
-Each i-node is 29 bytes long; this length was the result of modifying the recommended 32-byte format and reducing the recommended 4-byte flag area to 1 byte, since only a single flag (indicating whether the i-node represents a file or a directory) is required.
+Each i-node is 29 bytes long; this length was the result of modifying the recommended 32-byte format and reducing the recommended 4-byte flag area to 1 byte, since only a single flag (indicating whether the i-node represents a file or a directory) is required. However, I was unable to implement indirect data blocks in time to submit, so file size is capped at 5120 bytes.
 
 Each i-node takes up one block. This is inefficient, but it was recommended by Prof. Coady to simplify the project.
 

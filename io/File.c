@@ -54,11 +54,12 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 	fwrite(data, size, 1, disk); //Write it!
 }
 
-//TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
-//TODO: support sub-directories 
-//It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
-//This function assumes that we're working exclusively in the root directory. No sub-directories.
-//TODO: for now, this assumes that the file is 512B or less
+/* Puts a file in the file system
+ * @param disk: the virtual disk
+ * @param stream: the source of the information going in the new file
+ * @param filename: the name of the new file
+ * Note: This function assumes that we're working exclusively in the root directory. No sub-directories.
+ */
 void createFile(FILE* disk, FILE* stream, char* filename){
 
 	// Multi-purpose buffer
@@ -109,7 +110,6 @@ void createFile(FILE* disk, FILE* stream, char* filename){
 	//How many blocks shall the file occupy?
 	if (!(*intTmpChars%BLOCK_SIZE)) *intTmpChars = *intTmpChars/BLOCK_SIZE;
 	else *intTmpChars = *intTmpChars/BLOCK_SIZE + 1; //round up!
-	printf("intTmpChars = %d\n", *intTmpChars);
 
 	//I didn't have time to implement indirect data blocks. Only 5120B files, maximum
 	if (*intTmpChars > 10){
@@ -147,7 +147,6 @@ void createDir(FILE* disk, char* dirName){
 
 // Returns the block number of the first available i-node
 int findFreeInode(FILE* disk){
-	printf("Finding free inode...\n");
 	char* buffer = (char*)calloc(BLOCK_SIZE, 1);
 	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk); //reads the freelist vector!
 	for (int iblock = ZONE_OFFSET_INODES; iblock < ZONE_OFFSET_DATA; iblock++) {//Traverse the blocks that are part of the i-node zone!
@@ -161,7 +160,6 @@ int findFreeInode(FILE* disk){
 			if ((~b)&1){
 				block = (whichByte*8)+(7-shift);
 				free(buffer);
-				printf("Free inode found at %d\n", block);
 				return block;
 			}
 		}
@@ -194,7 +192,6 @@ int findFreeDataBlock(FILE* disk){
  * @param av: 0 = being freed; 1 = being occupied
  */
 void setInodeAvailability(FILE* disk, int block, int av){
-	printf("Setting inode availability\n");
 	char *buffer = calloc(BLOCK_SIZE, 1);
 	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk);
 	int whichByte = (block-(block%8))/8;
@@ -295,7 +292,6 @@ FILE* InitLLFS(){
 
 	// Write the directory's block number to disk (unused, but done anyway for professionalism's sake)
 	*intTmpChars = rootDirBlock;
-	printf("The directory's contents will be stored in block %d\n", rootDirBlock);
 	writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_PER_DATA_BLOCK, INODE_OFFSET_FIRST_DATA_BLOCK);
 
 	// I stored the block number in an inode for professionalism's sake, but won't use it. To navigate to the directory in the future, it will be easier to simply access its block number at the beginning of the free data block vector.

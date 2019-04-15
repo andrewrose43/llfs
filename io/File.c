@@ -55,8 +55,7 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 }
 
 //TODO: gotta write to the file size field of the inode (and, well, the entire i-node's contents) whenever the file is written to
-//TODO: this method must make an entry in the directory, which means it must be provided with a) the name of the new file and b) the directory
-//TODO: this method must give the new i-node its file flag
+//TODO: support sub-directories 
 //It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
 //This function assumes that we're working exclusively in the root directory. No sub-directories.
 //TODO: for now, this assumes that the file is 512B or less
@@ -96,26 +95,46 @@ void createFile(FILE* disk, FILE* stream, char* filename){
         	exit(1);
 	}
 
-	// MARK THE DATA BLOCK OCCUPIED
-	//TODO: Perhaps put this in a loop that runs as many times as there are 512B blocks required to store the file, so that we can store >512B files!
-	int dataBlockNum = findFreeDataBlock(disk); //Find the data block needed to store the next 512B of the file
-	setDataBlockAvailability(disk, dataBlockNum, 1); //Mark the correct data block as occupied
-
 	// WRITE I-NODE INFORMATION TO THE I-NODE
         // Writing ints through writeBytes requires some casting trickery.
         int *intTmpChars = (int*)tmpchars;
         // Write the file flag to the i-node on the disk
         *intTmpChars = INODE_FLAG_FILE;
         writeBytes(disk, inodeBlockNum, tmpchars, INODE_OFFSET_FIRST_DATA_BLOCK - INODE_OFFSET_FILE_TYPE_FLAG, INODE_OFFSET_FILE_TYPE_FLAG);
-	// Write the size of the file to its place. TODO: for now, it is assumed that the file is 512B or less
-	*intTmpChars = BLOCK_SIZE;
+	// Write the size of the file to its place.
+	fseek(stream, 0, SEEK_END);
+	*intTmpChars = ftell(stream)+1;
 	writeBytes(disk, inodeBlockNum, tmpchars, INODE_OFFSET_FILE_TYPE_FLAG - INODE_OFFSET_FILE_SIZE, INODE_OFFSET_FILE_SIZE);
 
-	// grand finale: WRITE THE CONTENTS OF THE FILE TO DISK
-	//Clear the buffer
-        buffer = (char*)calloc(BLOCK_SIZE, 1);
-	fread(buffer, 1, BLOCK_SIZE, stream);
-	writeBlock(disk, dataBlockNum, buffer, BLOCK_SIZE);
+	//How many blocks shall the file occupy?
+	if (!(*intTmpChars%BLOCK_SIZE)) *intTmpChars = *intTmpChars/BLOCK_SIZE;
+	else *intTmpChars = *intTmpChars/BLOCK_SIZE + 1; //round up!
+	printf("intTmpChars = %d\n", *intTmpChars);
+
+	//I didn't have time to implement indirect data blocks. Only 5120B files, maximum
+	if (*intTmpChars > 10){
+        	free(buffer);
+        	fprintf(stderr, "File too large!\n");
+        	exit(1);
+	}
+
+	//Reset stream pointer
+	fseek(stream, 0, SEEK_SET);
+	
+	for (int i = 0; i < *intTmpChars; i++){
+
+        	// MARK A DATA BLOCK OCCUPIED
+        	int dataBlockNum = findFreeDataBlock(disk); //Find the data block needed to store the next 512B of the file
+        	setDataBlockAvailability(disk, dataBlockNum, 1); //Mark the correct data block as occupied
+		//WRITE THE OCCUPIED BLOCKS TO THE INODE
+
+		// grand finale: WRITE THE CONTENTS OF THE FILE TO DISK
+		//Clear the buffer
+        	buffer = (char*)calloc(BLOCK_SIZE, 1);
+		fread(buffer, 1, BLOCK_SIZE, stream);
+		writeBlock(disk, dataBlockNum, buffer, BLOCK_SIZE);
+	}
+	free(buffer);
 }
 
 /*

@@ -59,40 +59,63 @@ void writeBytes(FILE* disk, int blockNum, char* data, int size, int offset){
 //TODO: this method must give the new i-node its file flag
 //It will need to do some kind of while()-based repeated function call to go through as many layers of directory as are necessary to make it work
 //This function assumes that we're working exclusively in the root directory. No sub-directories.
+//TODO: for now, this assumes that the file is 512B or less
 void createFile(FILE* disk, FILE* stream, char* filename){
 
-	//Open up that incoming file!
-	FILE* newFile = fopen(filename, "rb");
-	
-	int inodeBlockNum = findFreeInode(disk);
-	int inodeNum = inodeBlockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
-	setInodeAvailability(disk, inodeBlockNum, 1); //Mark the correct i-node as occupied
+	// Multi-purpose buffer
+        char tmpchars[4]; //4 bytes in an int
+	int found = 0;
 
-	int dataBlockNum = findFreeDataBlock(disk);
-	setDataBlockAvailability(disk, dataBlockNum, 1); //Mark the correct data block as occupied
-	printf("dataBlockNum is %d\n", dataBlockNum);
+	// MARK THE I-NODE OCCUPIED
+        int inodeBlockNum = findFreeInode(disk);
+        int inodeNum = inodeBlockNum - ZONE_OFFSET_INODES; //necessary to fit inodeNum into the byte provided to it in a directory
+        setInodeAvailability(disk, inodeBlockNum, 1); //Mark the correct i-node as occupied
 
-	char rootBlock[4]; //to read that block number
-	readBytes(rootBlock, ZONE_OFFSET_DATA_FREELIST, disk, 2, 0); //Read the block number of the root directory into rootBlock
-
-	int* intRootBlock = (int*) rootBlock; //Cast that pointer as an int pointer to pass it to readBlock
-	
-	char* buffer = (char*)malloc(BLOCK_SIZE);
-	readBlock(buffer, *intRootBlock, disk); //Read the directory into the buffer
+        // ADD THE FILE TO ITS DIRECTORY
+        readBytes(tmpchars, ZONE_OFFSET_DATA_FREELIST, disk, 2, 0); //Read the block number of the root directory into rootBlock
+        int* intRootBlock = (int*) tmpchars; //Cast that pointer as an int pointer to pass it to readBlock
+        char* buffer = (char*)calloc(BLOCK_SIZE, 1);
+        readBlock(buffer, *intRootBlock, disk); //Read the directory into the buffer
 
 	//Now let's find the first empty slot in the directory!
-	for (int i = 0; i < 16; i++){
-		if (buffer[32*i]) continue; //move to next slot if this one is occupied (0 indicates unoccupied slot)
-		//if we made it past the if statement, we've found our empty slot!
-		buffer[32*i] = inodeNum;
-		strncpy((char*)&buffer[32*i+1], &filename[1], MAX_NAME_LENGTH); //32*i+1 because it is stored one bit on from the inode number; filename[1] to remove the slash; MAX_NAME_LENGTH to only copy what is needed
-		writeBlock(disk, *intRootBlock, buffer, BLOCK_SIZE); //Write the buffer to disk!
-		free(buffer);
-		return; //you've copied in that file name; now shoo!
+        for (int i = 0; i < 16; i++){
+                if (buffer[32*i]) continue; //move to next slot if this one is occupied (0 indicates unoccupied slot)
+                //if we made it past the if statement, we've found our empty slot!
+		found = 1;
+                buffer[32*i] = inodeNum;
+                strncpy((char*)&buffer[32*i+1], &filename[1], MAX_NAME_LENGTH); //32*i+1 because it is stored one bit on from the inode number; filename[1] to remove the slash; MAX_NAME_LENGTH to only copy what is needed
+                writeBlock(disk, *intRootBlock, buffer, BLOCK_SIZE); //Write the buffer to disk!
+                free(buffer);
+                break; //you've copied in that file name; now shoo!
+        }
+
+        // CLEANUP (only runs if no empty slot was found in the directory)
+	if (!found){
+        	free(buffer);
+        	fprintf(stderr, "Directory out of space!\n");
+        	exit(1);
 	}
-	free(buffer);
-	fprintf(stderr, "Directory out of space!\n");
-	exit(1);
+
+	// MARK THE DATA BLOCK OCCUPIED
+	//TODO: Perhaps put this in a loop that runs as many times as there are 512B blocks required to store the file, so that we can store >512B files!
+	int dataBlockNum = findFreeDataBlock(disk); //Find the data block needed to store the next 512B of the file
+	setDataBlockAvailability(disk, dataBlockNum, 1); //Mark the correct data block as occupied
+
+	// WRITE I-NODE INFORMATION TO THE I-NODE
+        // Writing ints through writeBytes requires some casting trickery.
+        int *intTmpChars = (int*)tmpchars;
+        // Write the file flag to the i-node on the disk
+        *intTmpChars = INODE_FLAG_FILE;
+        writeBytes(disk, inodeBlockNum, tmpchars, INODE_OFFSET_FIRST_DATA_BLOCK - INODE_OFFSET_FILE_TYPE_FLAG, INODE_OFFSET_FILE_TYPE_FLAG);
+	// Write the size of the file to its place. TODO: for now, it is assumed that the file is 512B or less
+	*intTmpChars = BLOCK_SIZE;
+	writeBytes(disk, inodeBlockNum, tmpchars, INODE_OFFSET_FILE_TYPE_FLAG - INODE_OFFSET_FILE_SIZE, INODE_OFFSET_FILE_SIZE);
+
+	// grand finale: WRITE THE CONTENTS OF THE FILE TO DISK
+	//Clear the buffer
+        buffer = (char*)calloc(BLOCK_SIZE, 1);
+	fread(buffer, 1, BLOCK_SIZE, stream);
+	writeBlock(disk, dataBlockNum, buffer, BLOCK_SIZE);
 }
 
 /*
@@ -106,7 +129,7 @@ void createDir(FILE* disk, char* dirName){
 // Returns the block number of the first available i-node
 int findFreeInode(FILE* disk){
 	printf("Finding free inode...\n");
-	char* buffer = (char*)malloc(BLOCK_SIZE);
+	char* buffer = (char*)calloc(BLOCK_SIZE, 1);
 	readBlock(buffer, ZONE_OFFSET_INODE_FREELIST, disk); //reads the freelist vector!
 	for (int iblock = ZONE_OFFSET_INODES; iblock < ZONE_OFFSET_DATA; iblock++) {//Traverse the blocks that are part of the i-node zone!
 		int whichByte = (iblock-(iblock%8))/8; //determines which byte of the bit vector corresponds to any block
@@ -128,7 +151,7 @@ int findFreeInode(FILE* disk){
 
 // Returns the block number of the first available data block
 int findFreeDataBlock(FILE* disk){
-        char* buffer = (char*)malloc(BLOCK_SIZE);
+        char* buffer = (char*)calloc(BLOCK_SIZE, 1);
         readBlock(buffer, ZONE_OFFSET_DATA_FREELIST, disk); //reads the freelist vector!
         for (int iblock = ZONE_OFFSET_DATA; iblock < NUM_BLOCKS; iblock++){//Traverse the blocks that are part of the data zone!
                 int whichByte = (iblock-(iblock%8))/8; //determines which byte of the bit vector corresponds to any block
@@ -237,7 +260,6 @@ FILE* InitLLFS(){
 	int rootDirBlock = findFreeDataBlock(disk); //the block number of the root dir
 	setDataBlockAvailability(disk, rootDirBlock, 1); // Mark that data block as occupied
 
-
 	// Write the size of the directory to its inode (BLOCK_SIZE, of course)
 	// This requires some casting trickery.
 	char tmpchars[4]; //4 bytes in an array
@@ -252,7 +274,7 @@ FILE* InitLLFS(){
 	*intTmpChars = INODE_FLAG_DIRECTORY;
         writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_FIRST_DATA_BLOCK - INODE_OFFSET_FILE_TYPE_FLAG, INODE_OFFSET_FILE_TYPE_FLAG);
 
-	// Write the directory's block number to disk
+	// Write the directory's block number to disk (unused, but done anyway for professionalism's sake)
 	*intTmpChars = rootDirBlock;
 	printf("The directory's contents will be stored in block %d\n", rootDirBlock);
 	writeBytes(disk, rootINodeBlock, tmpchars, INODE_OFFSET_PER_DATA_BLOCK, INODE_OFFSET_FIRST_DATA_BLOCK);
